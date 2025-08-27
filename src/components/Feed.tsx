@@ -1,65 +1,144 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { ref, onValue, get, update } from 'firebase/database'
-import { rtdb } from '@/lib/firebase'
-import { AIAnalyzeButton, AIResultModal, useAIAnalysis, type EmotionCard } from '@/components/AIAnalyze'
+'use client'
+import React, { useEffect, useState } from 'react'
+import {
+  ref, query, orderByChild, limitToLast, onValue, update
+} from 'firebase/database'
+import { onAuthStateChanged } from 'firebase/auth'
+import { rtdb, auth } from '@/lib/firebase'
 
-function hasLiked(id: string) {
-  const raw = localStorage.getItem('liked') || '[]'
-  return JSON.parse(raw).includes(id)
+type Emotion = {
+  id: string
+  userId?: string
+  color?: string
+  shape?: string
+  sound?: string
+  label?: string
+  score?: number
+  timestamp?: number
+  likes?: number
+  lat?: number
+  lng?: number
 }
-function pushLiked(id: string) {
-  const raw = localStorage.getItem('liked') || '[]'
-  const arr = JSON.parse(raw)
-  if (!arr.includes(id)) arr.push(id)
-  localStorage.setItem('liked', JSON.stringify(arr))
+
+const RAW = (import.meta as any).env?.VITE_AI_BASE ?? ''
+const AI_BASE = String(RAW || '').replace(/\/+$/, '')
+
+async function predictEmotion(input: { color: string; shape?: string; sound?: string }) {
+  if (!AI_BASE) {
+    const bright = parseInt((input.color || '#888888').replace('#',''),16) > 0x888888
+    return { label: bright ? '긍정' : '차분', score: 0.6 }
+  }
+  const res = await fetch(`${AI_BASE}/predict`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) throw new Error('AI 서버 오류')
+  return res.json() as Promise<{ label: string; score: number }>
 }
 
 export default function Feed() {
-  const [cards, setCards] = useState<EmotionCard[]>([])
-  const { busyId, modal, setModal, run } = useAIAnalysis()
+  const [uid, setUid] = useState<string | null>(null)
+  const [items, setItems] = useState<Emotion[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string>('')
 
   useEffect(() => {
-    const emotionsRef = ref(rtdb, 'emotions')
-    const unsub = onValue(emotionsRef, (snap) => {
-      const val = snap.val() || {}
-      const list: EmotionCard[] = Object.values(val)
-      setCards(list)
+    const unsub = onAuthStateChanged(auth, u => {
+      if (!u) location.hash = 'login'
+      setUid(u ? u.uid : null)
     })
     return () => unsub()
   }, [])
 
-  const recent = useMemo(() => {
-    const now = Date.now()
-    return cards.filter(c => now - c.timestamp <= 24*60*60*1000).sort((a,b)=>b.timestamp-a.timestamp)
-  }, [cards])
+  useEffect(() => {
+    const q = query(ref(rtdb, 'emotions'), orderByChild('timestamp'), limitToLast(50))
+    const off = onValue(q, snap => {
+      const list: Emotion[] = []
+      snap.forEach(c => { list.push(c.val() as Emotion) })
+      const safe = list
+        .filter(v => typeof v?.timestamp === 'number')
+        .map(v => ({
+          id: v.id,
+          userId: v.userId ?? 'anonymous',
+          color: v.color ?? '#eeeeee',
+          shape: v.shape ?? '-',
+          sound: v.sound ?? '-',
+          label: v.label,
+          score: v.score,
+          timestamp: v.timestamp!,
+          likes: v.likes ?? 0,
+          lat: v.lat, lng: v.lng,
+        }))
+        .sort((a,b) => b.timestamp - a.timestamp)
+      setItems(safe)
+      setLoading(false)
+    }, e => { setErr(e?.message || '피드를 불러오지 못했습니다.'); setLoading(false) })
+    return () => off()
+  }, [])
 
-  async function likeCard(id: string) {
-    if (hasLiked(id)) return
-    const s = await get(ref(rtdb, `emotions/${id}/likes`))
-    const cur = s.val() || 0
-    await update(ref(rtdb, `emotions/${id}`), { likes: cur + 1 })
-    pushLiked(id)
+  const onLike = async (it: Emotion) => {
+    try {
+      await update(ref(rtdb, `emotions/${it.id}`), { likes: (it.likes ?? 0) + 1 })
+    } catch (e) {
+      console.warn(e)
+    }
   }
 
+  const onAnalyze = async (it: Emotion) => {
+    try {
+      const ai = await predictEmotion({ color: it.color!, shape: it.shape, sound: it.sound })
+      await update(ref(rtdb, `emotions/${it.id}`), { label: ai.label, score: ai.score })
+    } catch (e: any) {
+      alert(e?.message || 'AI 분석 실패')
+    }
+  }
+
+  if (loading) return <div className="grid place-items-center h-[60vh] text-gray-500">불러오는 중…</div>
+  if (err) return <div className="grid place-items-center h-[60vh] text-red-500">{err}</div>
+
   return (
-    <section>
-      <h2 className="text-lg font-semibold mb-3">최근 24시간 카드</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-        {recent.map(c => (
-          <div key={c.id} className="rounded-2xl border bg-white shadow-sm hover:shadow-md transition p-3">
-            <div className="h-28 rounded-xl" style={{ background: c.color }} />
-            <div className="mt-2 flex items-center justify-between">
-              <small className="text-gray-500">{new Date(c.timestamp).toLocaleString()}</small>
-              <div className="flex items-center gap-2">
-                <button onClick={()=>likeCard(c.id)} className="text-sm">❤ {c.likes || 0}</button>
-                <AIAnalyzeButton card={c} run={run} busyId={busyId} small />
-              </div>
+    <div className="max-w-2xl mx-auto p-4 flex flex-col gap-4">
+      {items.map(it => (
+        <article key={it.id} className="rounded-2xl bg-white border shadow p-4">
+          <header className="flex items-center justify-between mb-3">
+            <div className="text-sm text-gray-500">
+              {new Date(it.timestamp!).toLocaleString()}
             </div>
-            {!!c.ai && <div className="mt-1 text-xs text-gray-600">AI: {c.ai.label} ({Math.round((c.ai.score||0)*100)}%)</div>}
+            <div className="text-xs text-gray-400">
+              {(it.userId ?? 'anonymous').slice(0, 6)}
+            </div>
+          </header>
+
+          <div className="aspect-square rounded-2xl border shadow-inner mb-3" style={{ background: it.color }} />
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              {it.label
+                ? <>AI: <b>{it.label}</b> {typeof it.score === 'number' ? `(${Math.round(it.score*100)}%)` : ''}</>
+                : 'AI 결과 없음'}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onLike(it)}
+                className="px-3 py-1.5 rounded-lg border bg-white hover:bg-gray-50"
+                title="공감"
+              >
+                ❤ {it.likes ?? 0}
+              </button>
+              <button
+                onClick={() => onAnalyze(it)}
+                className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[#8877E6] via-[#788AE6] to-[#77ACE6]"
+                title="AI 분석"
+              >
+                ⚡ 분석
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
-      <AIResultModal modal={modal} onClose={()=>setModal(null)} />
-    </section>
+
+          <div className="mt-2 text-xs text-gray-500">{it.shape} · {it.sound}</div>
+        </article>
+      ))}
+    </div>
   )
 }

@@ -1,84 +1,74 @@
-'use client';
-import React, { useEffect, useState } from "react";
-import TabBar from "@/components/TabBar";
-import Feed from "@/components/Feed";
-import Write from "@/components/Write";
-import Explore from "@/components/Explore";
-import Login from "@/components/Login";
-import SignUp from "@/components/Signup";
-import { auth } from "@/components/Firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+'use client'
+import React, { useEffect, useState } from 'react'
+import TabBar from '@/components/TabBar'
+import Feed from '@/components/Feed'
+import Profile from '@/components/Profile'
+import Explore from '@/components/Explore'
+import Write from '@/components/Write'
+import Login from '@/components/Login'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '@/lib/firebase'
 
-type Tab = "feed" | "write" | "explore" | "login" | "signup"
+// 1) 탭과 라우트 타입 분리
+type Tab = 'feed' | 'profile' | 'explore'
+type Route = Tab | 'write' | 'login' | 'history' // 필요시 추가
 
-export default function Page() {
-  const [tab, setTab] = useState<Tab>("feed");
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+// 2) 현재 해시를 안전하게 Route로 파싱
+const parseHash = (): Route => {
+  const h = (location.hash || '#feed').slice(1)
+  const allow: Route[] = ['feed', 'profile', 'explore', 'write', 'login', 'history']
+  return (allow as readonly string[]).includes(h) ? (h as Route) : 'feed'
+}
 
-  // 해시 기반 탭
+// 3) Route가 Tab인지 판별
+const isTab = (r: Route): r is Tab => r === 'feed' || r === 'profile' || r === 'explore'
+
+export default function App() {
+  const [route, setRoute] = useState<Route>(parseHash())
+  const [authed, setAuthed] = useState<boolean>(false)
+  const [authReady, setAuthReady] = useState<boolean>(false)
+
+  // 로그인 상태 감시
   useEffect(() => {
-    const initial = (location.hash.replace("#", "") || "feed") as Tab;
-    setTab(initial);
-    const onHash = () => {
-      const next = (location.hash.replace("#", "") || "feed") as Tab;
-      setTab(next);
-    };
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
+    const unsub = onAuthStateChanged(auth, u => {
+      setAuthed(!!u)
+      setAuthReady(true)
+      // 비로그인인데 탭/작성/히스토리 들어오면 로그인으로
+      if (!u) {
+        const r = parseHash()
+        if (r !== 'login') location.hash = 'login'
+      }
+    })
+    return () => unsub()
+  }, [])
 
-  // Firebase 로그인 상태 구독
+  // 해시 라우팅
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) setUserEmail(user.email);
-      else setUserEmail(null);
-    });
-    return () => unsubscribe();
-  }, []);
+    const onHash = () => setRoute(parseHash())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
-  // 로그아웃 핸들러
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      alert("로그아웃되었습니다.");
-    } catch (err: any) {
-      console.error(err);
-      alert("로그아웃 실패: " + err.message);
-    }
-  };
+  // 첫 렌더 보호
+  if (!authReady) return <div className="grid place-items-center h-[60vh] text-gray-500">로딩 중…</div>
 
+  // 인증 가드: 로그인만 예외
+  if (!authed && route !== 'login') {
+    return <Login />
+  }
+
+  // 뷰 렌더
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", position: "relative" }}>
-      {/* TabBar와 오른쪽 상단 이메일 + 로그아웃 버튼 */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <TabBar current={tab} />
-        {userEmail && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontWeight: 500, color: "#333" }}>{userEmail}</span>
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: "4px 8px",
-                background: "#f87171", // 빨강색
-                color: "#fff",
-                border: "none",
-                borderRadius: 5,
-                cursor: "pointer",
-                fontSize: 12
-              }}
-            >
-              로그아웃
-            </button>
-          </div>
-        )}
-      </div>
+    <main className="min-h-screen bg-gray-50">
+      {route === 'login' && <Login />}
+      {route === 'feed' && <Feed />}
+      {route === 'profile' && <Profile />}
+      {route === 'explore' && <Explore />}
+      {route === 'write' && <Write />}
+      {route === 'history' && <div className="p-4 text-gray-500">History 컴포넌트 연결해</div>}
 
-      {/* 페이지 내용 */}
-      {tab === "feed" && <Feed />}
-      {tab === "write" && <Write />}
-      {tab === "explore" && <Explore />}
-      {tab === "login" && <Login />}
-      {tab === "signup" && <SignUp />}
+      {/* 4) TabBar에는 탭만 넘김. 로그인 등 비탭 라우트면 기본값 'feed' */}
+      <TabBar current={isTab(route) ? route : 'feed'} />
     </main>
-  );
+  )
 }
