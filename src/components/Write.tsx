@@ -18,10 +18,14 @@ async function predictEmotion(input: { color: string; shape: string; sound: stri
   const res = await fetch(`${AI_BASE}/predict`, {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ color_hex: input.color, shape: input.shape, sound: input.sound }),
   })
-  if (!res.ok) throw new Error('AI 서버 오류')
-  return res.json() as Promise<{ label: string; score: number }>
+  const data = await res.json().catch(() => { throw new Error('AI 응답 파싱 실패') })
+  if (!res.ok || data?.error) throw new Error(data?.error || `AI HTTP ${res.status}`)
+  const label = data.label || data.prediction
+  const score = typeof data.score === 'number' ? data.score : data.confidence
+  if (!label || typeof score !== 'number') throw new Error('AI 응답 형식 불일치')
+  return { label, score }
 }
 
 export default function Write() {
@@ -89,7 +93,6 @@ export default function Write() {
         새 실크 작성
       </h2>
 
-      {/* 미리보기 */}
       <div className="rounded-2xl bg-white border shadow p-4">
         <div className="flex items-center gap-4">
           <div className="w-24 h-24 rounded-2xl border shadow-inner" style={{ background: color }} title={`${shape} / ${sound}`} />
@@ -101,7 +104,6 @@ export default function Write() {
         </div>
       </div>
 
-      {/* 입력들 */}
       <div className="grid sm:grid-cols-3 gap-4">
         <div className="rounded-2xl bg-white border shadow p-4">
           <div className="text-sm font-medium text-gray-700 mb-2">색상</div>
@@ -132,7 +134,6 @@ export default function Write() {
         </div>
       </div>
 
-      {/* 옵션/저장 */}
       <div className="rounded-2xl bg-white border shadow p-4 flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={useAI} onChange={e=>setUseAI(e.target.checked)} />

@@ -83,7 +83,6 @@ export default function Login() {
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-md border">
         <h1 className="text-2xl font-bold text-center mb-6 text-gray-800">로그인</h1>
 
-        {/* Google */}
         <button
           type="button"
           onClick={onGoogle}
@@ -94,7 +93,6 @@ export default function Login() {
           {busy ? '로그인 중…' : 'Google로 계속하기'}
         </button>
 
-        {/* Divider */}
         <div className="relative my-5">
           <div className="border-t"></div>
           <span className="absolute left-1/2 -translate-x-1/2 -top-3 bg-white px-2 text-xs text-gray-400">
@@ -102,7 +100,6 @@ export default function Login() {
           </span>
         </div>
 
-        {/* Email form */}
         <form onSubmit={onEmailLogin} className="space-y-3">
           <input
             type="email"

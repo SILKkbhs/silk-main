@@ -1,8 +1,6 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
-import {
-  ref, query, orderByChild, equalTo, limitToLast, onValue, update
-} from 'firebase/database'
+import { ref, query, orderByChild, equalTo, limitToLast, onValue, update } from 'firebase/database'
 import { onAuthStateChanged } from 'firebase/auth'
 import { rtdb, auth } from '@/lib/firebase'
 
@@ -31,10 +29,14 @@ async function predictEmotion(input: { color: string; shape?: string; sound?: st
   const res = await fetch(`${AI_BASE}/predict`, {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ color_hex: input.color, shape: input.shape, sound: input.sound }),
   })
-  if (!res.ok) throw new Error('AI 서버 오류')
-  return res.json() as Promise<{ label: string; score: number }>
+  const data = await res.json().catch(() => { throw new Error('AI 응답 파싱 실패') })
+  if (!res.ok || data?.error) throw new Error(data?.error || `AI HTTP ${res.status}`)
+  const label = data.label || data.prediction
+  const score = typeof data.score === 'number' ? data.score : data.confidence
+  if (!label || typeof score !== 'number') throw new Error('AI 응답 형식 불일치')
+  return { label, score }
 }
 
 export default function History() {
