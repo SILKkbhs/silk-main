@@ -8,6 +8,7 @@ import Login from '@/components/Login'
 import Signup from '@/components/Signup'
 import History from '@/components/History'
 import Profile from '@/components/Profile'
+import IntroSplash from '@/components/IntroSplash'
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 
@@ -26,32 +27,32 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
 
+  // 1) 인증 상태 구독
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, u => {
+    const unsub = onAuthStateChanged(auth, u => {
       setUser(u)
       setAuthReady(true)
-      if (!u && route !== 'login') location.hash = 'login'
     })
+    return () => unsub()
+  }, [])
+
+  // 2) 해시 라우팅
+  useEffect(() => {
     const onHash = () => setRoute(parseHash())
     window.addEventListener('hashchange', onHash)
-    return () => { unsubAuth(); window.removeEventListener('hashchange', onHash) }
-  }, [route])
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
+  // 3) 스플래시 종료 후 어디로 보낼지
+  const nextHash = authReady ? (user ? '#feed' : '#login') : '#login'
+
+  // 4) 본문 렌더
+  let content: React.ReactNode = null
   if (!authReady) {
-    return <div className="grid place-items-center h-screen text-sm text-gray-500">로딩중…</div>
-  }
-
-  if (!user && route !== 'login') {
-    return (
-      <main className="max-w-md mx-auto px-4 py-10">
-        <Login />
-      </main>
-    )
-  }
-
-  return (
-    <div className="min-h-screen">
-      <main className="max-w-5xl mx-auto px-4 py-4">
+    content = <div className="grid place-items-center h-[70vh] text-sm text-gray-500">로딩중…</div>
+  } else {
+    content = (
+      <>
         {route === 'login' && <Login />}
         {route === 'signup' && <Signup />}
         {route === 'feed' && <Feed />}
@@ -59,7 +60,19 @@ export default function App() {
         {route === 'explore' && <Explore />}
         {route === 'write' && <Write />}
         {route === 'history' && <History />}
+      </>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* 앱 시작 시 스플래시: 끝나면 nextHash로 이동 */}
+      <IntroSplash mode="auto" nextHash={nextHash} />
+
+      <main className="max-w-5xl mx-auto px-4 py-4">
+        {content}
       </main>
+
       <TabBar current={isTab(route) ? route : 'feed'} />
     </div>
   )

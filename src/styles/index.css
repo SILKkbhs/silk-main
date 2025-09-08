@@ -3,3 +3,24 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
+/* --- IntroSplash animations --- */
+@keyframes silk-stretch {
+  0%   { transform: scaleX(0.65) scaleY(0.85) rotate(-4deg); filter: blur(2px); opacity: 0; }
+  40%  { transform: scaleX(1.12) scaleY(0.95) rotate(1deg);  filter: blur(0.5px); opacity: 1; }
+  70%  { transform: scaleX(0.98)  scaleY(1.02) rotate(0deg); }
+  100% { transform: scaleX(1)     scaleY(1)    rotate(0deg); filter: blur(0); }
+}
+@keyframes silk-word-reveal {
+  0%   { letter-spacing: -0.1em; transform: translateY(8px); opacity: 0; }
+  60%  { letter-spacing: 0.02em; transform: translateY(0);   opacity: 1; }
+  100% { letter-spacing: 0; }
+}
+@keyframes silk-fade-out {
+  to { opacity: 0; visibility: hidden; }
+}
+
+/* 유틸 클래스 */
+.intro-stretch { animation: silk-stretch 1.1s cubic-bezier(.22,.9,.27,1) both; }
+.intro-word-reveal { animation: silk-word-reveal .8s ease-out .35s both; }
+.intro-sub-reveal  { animation: silk-word-reveal .7s ease-out .55s both; opacity: .8; }
+.intro-fade-out { animation: silk-fade-out .35s linear forwards; }
