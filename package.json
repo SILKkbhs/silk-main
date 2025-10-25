@@ -11,8 +11,8 @@
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.1",
     "firebase": "^10.14.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",

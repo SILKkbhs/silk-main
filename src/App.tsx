@@ -9,25 +9,30 @@ import Signup from '@/components/Signup'
 import History from '@/components/History'
 import Profile from '@/components/Profile'
 import IntroSplash from '@/components/IntroSplash'
+import Home from '@/components/Home' // ✅ 추가
 import { onAuthStateChanged, User } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 
-type Tab = 'feed' | 'profile' | 'explore'
+// ✅ home 추가
+type Tab = 'home' | 'feed' | 'profile' | 'explore'
 type Route = Tab | 'write' | 'login' | 'signup' | 'history'
 
+// ✅ 기본 해시를 home으로 설정하고 허용 목록에도 home 추가
 const parseHash = (): Route => {
-  const h = (location.hash || '#feed').slice(1)
-  const allow: Route[] = ['feed', 'profile', 'explore', 'write', 'login', 'signup', 'history']
-  return (allow as readonly string[]).includes(h) ? (h as Route) : 'feed'
+  const h = (location.hash || '#home').slice(1)
+  const allow: Route[] = ['home', 'feed', 'profile', 'explore', 'write', 'login', 'signup', 'history']
+  return (allow as readonly string[]).includes(h) ? (h as Route) : 'home'
 }
-const isTab = (r: Route): r is Tab => r === 'feed' || r === 'profile' || r === 'explore'
+
+const isTab = (r: Route): r is Tab =>
+  r === 'home' || r === 'feed' || r === 'profile' || r === 'explore'
 
 export default function App() {
   const [route, setRoute] = useState<Route>(parseHash())
   const [user, setUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(false)
 
-  // 1) 인증 상태 구독
+  // 인증 상태 구독
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
       setUser(u)
@@ -36,17 +41,17 @@ export default function App() {
     return () => unsub()
   }, [])
 
-  // 2) 해시 라우팅
+  // 해시 라우팅
   useEffect(() => {
     const onHash = () => setRoute(parseHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  // 3) 스플래시 종료 후 어디로 보낼지
-  const nextHash = authReady ? (user ? '#feed' : '#login') : '#login'
+  // 스플래시 후 이동
+  const nextHash = authReady ? (user ? '#home' : '#login') : '#login'
 
-  // 4) 본문 렌더
+  // 본문 렌더
   let content: React.ReactNode = null
   if (!authReady) {
     content = <div className="grid place-items-center h-[70vh] text-sm text-gray-500">로딩중…</div>
@@ -55,6 +60,7 @@ export default function App() {
       <>
         {route === 'login' && <Login />}
         {route === 'signup' && <Signup />}
+        {route === 'home' && <Home />}       {/* ✅ 홈 화면 추가 */}
         {route === 'feed' && <Feed />}
         {route === 'profile' && <Profile />}
         {route === 'explore' && <Explore />}
@@ -66,14 +72,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 앱 시작 시 스플래시: 끝나면 nextHash로 이동 */}
       <IntroSplash mode="auto" nextHash={nextHash} />
 
       <main className="max-w-5xl mx-auto px-4 py-4">
         {content}
       </main>
 
-      <TabBar current={isTab(route) ? route : 'feed'} />
+      <TabBar current={isTab(route) ? route : 'home'} /> {/* ✅ 기본 탭 home으로 */}
     </div>
   )
 }
