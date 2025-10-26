@@ -18,6 +18,7 @@ type Emotion = {
   lng?: number
 }
 
+// AI 분석 함수 (기존 코드 유지)
 const RAW = (import.meta as any).env?.VITE_AI_BASE ?? ''
 const AI_BASE = String(RAW || '').replace(/\/+$/, '')
 
@@ -45,6 +46,7 @@ export default function Feed() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string>('')
 
+  // 사용자 인증 (기존 코드 유지)
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, u => {
       if (!u) location.hash = 'login'
@@ -53,11 +55,14 @@ export default function Feed() {
     return () => unsub()
   }, [])
 
+  // 데이터 로드 (최근 50개)
   useEffect(() => {
-    const q = query(ref(rtdb, 'emotions'), orderByChild('timestamp'), limitToLast(50))
+    // 💡 Firebase key를 id로 사용하도록 수정
+    const q = query(ref(rtdb, 'emotions'), orderByChild('timestamp'), limitToLast(50)) 
     const off = onValue(q, snap => {
       const list: Emotion[] = []
-      snap.forEach(c => { list.push(c.val() as Emotion) })
+      snap.forEach(c => { list.push({ id: c.key ?? 'missing-id', ...(c.val() as Omit<Emotion, 'id'>) }) })
+      
       const safe = list
         .filter(v => typeof v?.timestamp === 'number')
         .map(v => ({
@@ -79,68 +84,86 @@ export default function Feed() {
     return () => off()
   }, [])
 
-  const onLike = async (it: Emotion) => {
-    try {
-      await update(ref(rtdb, `emotions/${it.id}`), { likes: (it.likes ?? 0) + 1 })
-    } catch (e) {
-      console.warn(e)
+  if (loading) return <div className="grid place-items-center h-[60vh] text-gray-500 text-lg">⏳ 불러오는 중…</div>
+  if (err) return <div className="grid place-items-center h-[60vh] text-red-500 text-lg font-bold">❌ {err}</div>
+
+  // 2x3 (6개) 그리드 뷰를 위해 처음 6개 항목만 사용
+  const displayItems = items.slice(0, 6)
+  
+  // 감정 레이블의 색상 매핑
+  const getColorForLabel = (label: string) => {
+    switch (label) {
+        case '긍정': return 'text-green-500';
+        case '차분': return 'text-blue-500';
+        case '활기': return 'text-yellow-500';
+        case '우울': return 'text-red-500';
+        case '불안': return 'text-pink-500';
+        default: return 'text-gray-500';
     }
   }
-
-  const onAnalyze = async (it: Emotion) => {
-    try {
-      const ai = await predictEmotion({ color: it.color!, shape: it.shape, sound: it.sound })
-      await update(ref(rtdb, `emotions/${it.id}`), { label: ai.label, score: ai.score })
-    } catch (e: any) {
-      alert(e?.message || 'AI 분석 실패')
-    }
-  }
-
-  if (loading) return <div className="grid place-items-center h-[60vh] text-gray-500">불러오는 중…</div>
-  if (err) return <div className="grid place-items-center h-[60vh] text-red-500">{err}</div>
 
   return (
-    <div className="max-w-2xl mx-auto p-4 flex flex-col gap-4">
-      {items.map(it => (
-        <article key={it.id} className="rounded-2xl bg-white border shadow p-4">
-          <header className="flex items-center justify-between mb-3">
-            <div className="text-sm text-gray-500">
-              {new Date(it.timestamp!).toLocaleString()}
-            </div>
-            <div className="text-xs text-gray-400">
-              {(it.userId ?? 'anonymous').slice(0, 6)}
-            </div>
-          </header>
+    
+    <div 
+        className="max-w-4xl mx-auto px-6 py-8 pt-20" 
+    >
+        
+        <h2 className="text-3xl font-extrabold text-gray-900 mb-8 border-b-4 border-indigo-400 pb-3">
+            실크 겔러리
+        </h2>
 
-          <div className="aspect-square rounded-2xl border shadow-inner mb-3" style={{ background: it.color }} />
+        {displayItems.length === 0 ? (
+            <p className="col-span-full text-center text-gray-500 text-md p-8 bg-gray-100 rounded-xl shadow-inner">
+                아직 공유된 실크 기록이 부족합니다.
+            </p>
+        ) : (
+            
+            <div className="grid grid-cols-3 gap-6">
+                {displayItems.map(it => {
+                    const hasLabel = !!it.label;
+                    return (
+                        <div 
+                            key={it.id} 
+                            // 🌟 깔끔한 카드 디자인
+                            className="aspect-square rounded-3xl shadow-xl border border-gray-100 overflow-hidden 
+                                       transform transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] cursor-pointer"
+                        >
+                            {/* 감정 시각화 영역 */}
+                            <div 
+                                className="relative h-2/3 flex items-center justify-center" 
+                                style={{ background: it.color }}
+                            >
+                                {/* 날짜 레이블 (잘림 방지) */}
+                                <div className="absolute top-3 left-3 px-3 py-1 bg-black bg-opacity-30 rounded-full text-xs text-white font-medium z-10">
+                                    {new Date(it.timestamp!).toLocaleDateString('ko-KR').substring(5, 12)}
+                                </div>
+                                
+                                
+                            </div>
 
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              {it.label
-                ? <>AI: <b>{it.label}</b> {typeof it.score === 'number' ? `(${Math.round(it.score*100)}%)` : ''}</>
-                : 'AI 결과 없음'}
+                            {/* 정보 영역 */}
+                            <div className="h-1/3 p-3 flex flex-col justify-center bg-white">
+                                <div className="text-xs text-gray-500 font-medium truncate mb-1">
+                                    {it.shape} · {it.sound}
+                                </div>
+                                <div className="text-lg font-extrabold truncate">
+                                    {hasLabel ? (
+                                        <span className={`${getColorForLabel(it.label!)}`}>
+                                            {it.label}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-400">분석 필요</span>
+                                    )}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                    {hasLabel && `AI ${(Math.round((it.score ?? 0) * 100))}%`}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onLike(it)}
-                className="px-3 py-1.5 rounded-lg border bg-white hover:bg-gray-50"
-                title="공감"
-              >
-                ❤ {it.likes ?? 0}
-              </button>
-              <button
-                onClick={() => onAnalyze(it)}
-                className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[#8877E6] via-[#788AE6] to-[#77ACE6]"
-                title="AI 분석"
-              >
-                ⚡ 분석
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-2 text-xs text-gray-500">{it.shape} · {it.sound}</div>
-        </article>
-      ))}
+        )}
     </div>
   )
 }
