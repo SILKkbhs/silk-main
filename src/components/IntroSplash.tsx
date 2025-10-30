@@ -55,7 +55,7 @@ export default function IntroSplash({
       aria-label="Intro overlay"
       role="dialog"
     >
-      <div className="w-[280px] sm:w-[360px] relative select-none">
+      <div className="w-[380px] sm:w-[460px] relative select-none">
         <svg viewBox="0 0 358 504" className="w-[160px] mx-auto intro-stretch" aria-label="SILK logo">
           <defs>
             <linearGradient id="silkGrad" x1="0" y1="0" x2="1" y2="1">

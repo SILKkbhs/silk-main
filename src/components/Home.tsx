@@ -5,8 +5,8 @@ import { motion, useScroll, useTransform, useSpring } from 'framer-motion';
 const SCROLL_CONTENTS = [
   { 
     id: 1, 
-    title: "300% 더 빨라진\n반응 속도", 
-    subtitle: "메시지를 보내고 받는 경험이 압도적으로 매끄러워졌습니다.", 
+    title: "AI의 색상 기반\n감정 분석", 
+    subtitle: "색상 선택만으로도 당신의 감정을 깊이 이해하고 분석합니다.", 
     color: 'from-amber-400 via-orange-400 to-rose-400',
     accentColor: 'text-amber-500',
     dotColor: 'bg-amber-500'
@@ -14,7 +14,7 @@ const SCROLL_CONTENTS = [
   { 
     id: 2, 
     title: "조용하지만\n명확한 알림", 
-    subtitle: "중요한 메시지만 강조하고, 불필요한 알림은 부드럽게 통합합니다.", 
+    subtitle: "중요한 메시지만 강조하고 불필요한 알림은 부드럽게 통합합니다.", 
     color: 'from-slate-800 via-slate-700 to-slate-600',
     accentColor: 'text-slate-700',
     dotColor: 'bg-slate-700'
@@ -161,7 +161,7 @@ export default function Home() {
                         <div className="text-7xl mb-6">
                           {index === 0 ? '⚡' : index === 1 ? '🔔' : '✨'}
                         </div>
-                        <div className="text-lg font-medium opacity-90">화면 {content.id}</div>
+                        <div className="text-lg font-medium opacity-90"></div>
                       </div>
                     </div>
                     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-24 h-6 bg-neutral-900 rounded-full border-2 border-neutral-800"></div>
@@ -218,8 +218,8 @@ export default function Home() {
                 gradient: "from-pink-500 to-rose-500"
               },
               { 
-                title: "Emotion", 
-                desc: "안전하고 사려 깊은 커뮤니티에서 진실된 감정을 공유하고 공감합니다.",
+                title: "Color", 
+                desc: "감정의 미묘한 차이를 다채로운 색상 팔레트로 시각적으로 전달합니다.",
                 icon: (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2L2 7l10 5 10-5L12 2zM2 17l10 5 10-5M2 12l10 5 10-5" />
