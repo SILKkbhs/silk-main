@@ -3,8 +3,11 @@ import React, { useEffect, useState } from 'react'
 import { ref, query, orderByChild, limitToLast, onValue } from 'firebase/database'
 import { onAuthStateChanged } from 'firebase/auth'
 import { rtdb, auth } from '@/lib/firebase'
-import ShapeOverlay from '@/components/visuals/ShapeOverlay'
+// import ShapeOverlay from '@/components/visuals/ShapeOverlay' // ⛔️ 사용 안함: 미리보기와 불일치 원인이던 레이어
 import DetailModal from '@/components/DetailModal'
+import ShapePreview from '@/components/ui/ShapePreview'
+import { normalizeShape } from '@/utils/shape'
+import { stopAllAudios } from '@/utils/audio'   // ✅ 추가: 겹침 방지용
 
 type Emotion = {
   id: string
@@ -76,7 +79,12 @@ export default function Feed() {
     }
   }
 
-  const openModal = (it: Emotion) => { setCurrent(it); setOpen(true) }
+  // ✅ 모달 열 때 기존 재생 중인 오디오 전부 정지
+  const openModal = (it: Emotion) => {
+    stopAllAudios()
+    setCurrent(it)
+    setOpen(true)
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 pt-20">
@@ -90,6 +98,9 @@ export default function Feed() {
         <div className="grid grid-cols-3 gap-6">
           {displayItems.map(it => {
             const hasLabel = !!it.label
+            const shape = normalizeShape(it.shape)                 // ✅ 항상 동일 규격
+            const color = it.color ?? '#8877E6'
+
             return (
               <button
                 key={it.id}
@@ -97,16 +108,18 @@ export default function Feed() {
                 className="aspect-square rounded-3xl shadow-xl border border-gray-100 overflow-hidden
                            transform transition-all duration-300 hover:shadow-2xl hover:scale-[1.02] cursor-pointer text-left"
               >
-                <div className="relative h-2/3" style={{ background: it.color }}>
-                  <ShapeOverlay shape={it.shape} />
+                {/* ⬇️ 상단: 미리보기와 동일한 렌더러 사용 */}
+                <div className="relative h-2/3 bg-white grid place-items-center">
+                  <ShapePreview shape={shape} color={color} size={88} />
                   <div className="absolute top-3 left-3 px-3 py-1 bg-black/30 rounded-full text-xs text-white font-medium z-10">
                     {new Date(it.timestamp!).toLocaleDateString('ko-KR').substring(5, 12)}
                   </div>
                 </div>
 
+                {/* 하단 정보 */}
                 <div className="h-1/3 p-3 flex flex-col justify-center bg-white">
                   <div className="text-xs text-gray-500 font-medium truncate mb-1">
-                    {it.shape} · {it.sound}
+                    {shape} · {it.sound}
                   </div>
                   <div className="text-lg font-extrabold truncate">
                     {hasLabel ? (
@@ -116,7 +129,7 @@ export default function Feed() {
                     )}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    {hasLabel && `AI ${(Math.round((it.score ?? 0) * 100))}%`}
+                    {hasLabel && `AI ${Math.round((it.score ?? 0) * 100)}%`}
                   </div>
                 </div>
               </button>

@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { ref, query, orderByChild, equalTo, limitToLast, onValue, update } from 'firebase/database'
 import { onAuthStateChanged } from 'firebase/auth'
 import { rtdb, auth } from '@/lib/firebase'
+import ShapePreview from '@/components/ui/ShapePreview'
+import { normalizeShape } from '@/utils/shape'
 
 type Emotion = {
   id: string
@@ -126,28 +128,36 @@ export default function History() {
           <section key={day}>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">{day}</h3>
             <div className="flex flex-col gap-3">
-              {grouped[day].map(it => (
-                <article key={it.id} className="rounded-2xl bg-white border shadow p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl border shadow-inner" style={{ background: it.color }} />
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-800">
-                        {it.label
-                          ? <>AI: <b>{it.label}</b> {typeof it.score==='number' ? `(${Math.round(it.score*100)}%)` : ''}</>
-                          : <span className="text-gray-500">AI 결과 없음</span>}
+              {grouped[day].map(it => {
+                const shape = normalizeShape(it.shape)
+                const color = it.color ?? '#8877E6'
+                const scoreText = typeof it.score === 'number' ? `(${Math.round(it.score * 100)}%)` : ''
+                return (
+                  <article key={it.id} className="rounded-2xl bg-white border shadow p-3">
+                    <div className="flex items-center gap-3">
+                      {/* ✅ 미리보기와 동일한 썸네일 */}
+                      <ShapePreview shape={shape} color={color} size={48} />
+
+                      <div className="flex-1">
+                        <div className="text-sm text-gray-800">
+                          {it.label
+                            ? <>AI: <b>{it.label}</b> {scoreText}</>
+                            : <span className="text-gray-500">AI 결과 없음</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">{shape} · {it.sound}</div>
                       </div>
-                      <div className="text-xs text-gray-500">{it.shape} · {it.sound}</div>
+
+                      <button
+                        onClick={() => onAnalyze(it)}
+                        disabled={busyId === it.id}
+                        className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[#8877E6] via-[#788AE6] to-[#77ACE6] disabled:opacity-60"
+                      >
+                        {busyId === it.id ? '분석 중…' : '⚡ 분석'}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => onAnalyze(it)}
-                      disabled={busyId === it.id}
-                      className="px-3 py-1.5 rounded-lg text-white bg-gradient-to-r from-[#8877E6] via-[#788AE6] to-[#77ACE6] disabled:opacity-60"
-                    >
-                      {busyId === it.id ? '분석 중…' : '⚡ 분석'}
-                    </button>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                )
+              })}
             </div>
           </section>
         ))}

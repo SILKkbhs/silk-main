@@ -1,13 +1,9 @@
+// src/components/DetailModal.tsx
 'use client'
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import ShapeOverlay from '@/components/visuals/ShapeOverlay'
-
-const SOUND_SRC: Record<string, string> = {
-  chime: '/sounds/chime.mp3',
-  rain: '/sounds/rain.mp3',
-  piano: '/sounds/piano.mp3',
-  drum: '/sounds/drum.mp3',
-}
+import { stopAllAudios } from '@/utils/audio'
+import { getSoundUrl } from '@/utils/sound'
 
 export type DetailItem = {
   id: string
@@ -23,18 +19,31 @@ export type DetailItem = {
 
 export default function DetailModal({
   open, item, onClose,
-}: { open: boolean; item: DetailItem|null; onClose: () => void }) {
-  const src = item?.sound ? SOUND_SRC[item.sound] : undefined
+}: { open: boolean; item: DetailItem | null; onClose: () => void }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
+  // 모달이 열리거나 아이템/사운드가 바뀔 때: 자동재생 금지(소스만 세팅)
   useEffect(() => {
-    if (!open || !src) return
-    const audio = new Audio(src)
-    audio.play().catch(() => {})
-    return () => { audio.pause(); audio.currentTime = 0 }
-  }, [open, src])
+    const el = audioRef.current
+    if (!el) return
+    el.pause()
+    el.currentTime = 0
+    el.src = item?.sound ? (getSoundUrl(item.sound) ?? '') : ''
+    // ❌ 절대 play() 호출하지 않음
+  }, [open, item?.id, item?.sound])
+
+  // 모달 닫힐 때 정리
+  useEffect(() => {
+    if (!open) {
+      const el = audioRef.current
+      if (el) { el.pause(); el.src = '' }
+    }
+  }, [open])
 
   if (!open || !item) return null
+
   const date = item.timestamp ? new Date(item.timestamp).toLocaleString('ko-KR') : '-'
+  const scoreText = typeof item.score === 'number' ? ` (${Math.round(item.score * 100)}%)` : ''
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4" role="dialog" aria-modal="true">
@@ -47,9 +56,19 @@ export default function DetailModal({
         <div className="p-4 space-y-2">
           <div className="text-sm text-gray-500">{item.shape} · {item.sound}</div>
           <div className="text-lg font-bold">
-            {item.label ? `${item.label}${typeof item.score==='number'?` (${Math.round(item.score*100)}%)`:''}` : '분석 필요'}
+            {item.label ? `${item.label}${scoreText}` : '분석 필요'}
           </div>
-          {src && <audio controls className="w-full mt-2"><source src={src} type="audio/mpeg" /></audio>}
+
+          {/* 🎧 자동재생 X — 사용자 클릭 시에만 재생 */}
+          <audio
+            ref={audioRef}
+            key={item?.sound}      // 다른 카드로 바꿀 때 src 새로고침
+            controls
+            preload="none"
+            onPlay={() => stopAllAudios(audioRef.current!)}  // 겹침 방지
+            className="w-full mt-2"
+          />
+
           <div className="flex justify-end pt-2">
             <button onClick={onClose} className="px-3 py-1.5 rounded-lg border hover:bg-gray-50">닫기</button>
           </div>
