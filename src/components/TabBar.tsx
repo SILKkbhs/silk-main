@@ -63,7 +63,7 @@ export default function TabBar({ current }: { current: Tab }) {
   }
 
   return (
-    <nav className="fixed top-0 inset-x-0 z-20 bg-[#1a1a2e] shadow-xl border-b border-gray-700/50">
+    <nav className="fixed top-0 inset-x-0 z-20 bg-[#4545f2] shadow-xl border-b border-gray-700/50">
       <div className="max-w-5xl mx-auto h-16 px-6 flex items-center justify-between">
         {/* 좌측 로고 */}
         <Logo />

@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ref as dbRef, onValue, update, remove } from 'firebase/database'
 import { rtdb } from '@/lib/firebase' // ← 프로젝트에 맞게 경로 확인(예: '@/lib/firebase')
-import ShapeOverlay from '@/components/visuals/ShapeOverlay'
+import ShapePreview from '@/components/ui/ShapePreview' // ← 프로젝트에 맞게 경로 확인
 import DetailModal from '@/components/DetailModal'
 
 type Emotion = {
@@ -253,9 +253,8 @@ export default function Explore() {
       const center = { lat: v.latSum / v.count, lng: v.lngSum / v.count }
       const avgHappy = v.scoreSum / v.count // 0~1
 
-      // ⬇️ 개수에 선형 비례 (최소 300m + 개수*200m)
-      const radius = 300 + 200 * v.count  // m (원 크기가 '수에 비례'해서 커짐)
-      // 필요하면 스케일 조정: 300 부분을 150~250 사이로 바꿔도 됨
+      // ⬇️ 개수에 선형 비례 (최소 100m + 개수*50m)
+      const radius = 100 + 50 * v.count  // m (원 크기가 '수에 비례'해서 커짐)
 
       const opacity = Math.max(0.15, Math.min(0.5, 0.15 + avgHappy * 0.35))
 
@@ -335,9 +334,12 @@ export default function Explore() {
                     onClick={() => { setCurrent(c); setOpen(true); }}
                     className="rounded-2xl border bg-white shadow-sm p-3 cursor-pointer hover:shadow-md transition-shadow"
                   >
-                    <div className="relative h-28 rounded-xl bg-white">
-                      {/* 도형은 카드의 색으로 채움 */}
-                      <ShapeOverlay shape={c.shape} />
+                    <div className="relative h-28 rounded-xl bg-white grid place-items-center">
+                      <ShapePreview
+                        shape={(c.shape as any) ?? 'square'}
+                        color={c.color ?? '#cccccc'}
+                        size={88}
+                      />
                       <div className="absolute top-3 left-3 px-3 py-1 bg-black/30 rounded-full text-xs text-white font-medium z-10">
                         {dateText}
                       </div>

@@ -1,58 +1,110 @@
-// src/shared/components/ui/ShapePreview.tsx
+'use client'
 import React from 'react'
 
-export type ShapeType = 'square' | 'circle' | 'wave' | 'triangle'
+type Shape = 'square' | 'circle' | 'triangle' | 'diamond' | 'wave' | string
 
 type Props = {
-  shape: ShapeType
-  color: string
+  shape?: Shape
+  color?: string
   size?: number
   className?: string
 }
 
-export default function ShapePreview({ shape, color, size = 120, className }: Props) {
-  const s = size
-  const stroke = '#00000010'
+/**
+ * 배경은 그리지 않고, 주어진 도형 내부만 color로 채워서 렌더한다.
+ * 요구사항: wave는 채우기 어려우니 렌더 단계에서 diamond로 대체한다.
+ */
+const ShapePreview: React.FC<Props> = ({
+  shape = 'square',
+  color = '#7777ee',
+  size = 120,
+  className = '',
+}) => {
+  const s = Math.max(40, size)
+  const stroke = 'none'
 
-  if (shape === 'square') {
+  // wave → diamond로 강제 맵핑
+  const normalized: Exclude<Shape, 'wave'> =
+    (shape === 'wave' ? 'diamond' : shape) as any
+
+  if (normalized === 'circle') {
+    const r = s * 0.35
     return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} className={className} role="img" aria-label="정사각형 미리보기">
-        <rect x="8" y="8" width={s-16} height={s-16} rx="16" fill={color} stroke={stroke} />
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        role="img"
+        aria-label="circle"
+        className={className}
+      >
+        <circle cx={s / 2} cy={s / 2} r={r} fill={color} stroke={stroke} />
       </svg>
     )
   }
 
-  if (shape === 'circle') {
+  if (normalized === 'triangle') {
+    const pad = s * 0.15
+    const p1 = `${s / 2},${pad}`
+    const p2 = `${s - pad},${s - pad}`
+    const p3 = `${pad},${s - pad}`
     return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} className={className} role="img" aria-label="원형 미리보기">
-        <circle cx={s/2} cy={s/2} r={(s/2)-12} fill={color} stroke={stroke} />
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        role="img"
+        aria-label="triangle"
+        className={className}
+      >
+        <polygon points={`${p1} ${p2} ${p3}`} fill={color} stroke={stroke} />
       </svg>
     )
   }
 
-  if (shape === 'triangle') {
-    const pad = 10
-    const points = `${s/2},${pad} ${s-pad},${s-pad} ${pad},${s-pad}`
+  if (normalized === 'diamond') {
+    const pad = s * 0.15
+    const cx = s / 2
+    const cy = s / 2
+    const r = (s - pad * 2) / 2
+    const pts = `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`
     return (
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} className={className} role="img" aria-label="삼각형 미리보기">
-        <polygon points={points} fill={color} stroke={stroke} />
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        role="img"
+        aria-label="diamond"
+        className={className}
+      >
+        <polygon points={pts} fill={color} stroke={stroke} />
       </svg>
     )
   }
 
-  // wave
+  // default: square
+  const pad = s * 0.15
   return (
-    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} className={className} role="img" aria-label="웨이브 미리보기">
-      <path
-        d={`
-          M 0 ${s*0.55}
-          C ${s*0.15} ${s*0.35}, ${s*0.35} ${s*0.75}, ${s*0.5} ${s*0.55}
-          C ${s*0.65} ${s*0.35}, ${s*0.85} ${s*0.75}, ${s} ${s*0.55}
-          L ${s} ${s} L 0 ${s} Z
-        `}
+    <svg
+      width={s}
+      height={s}
+      viewBox={`0 0 ${s} ${s}`}
+      role="img"
+      aria-label="square"
+      className={className}
+    >
+      <rect
+        x={pad}
+        y={pad}
+        width={s - pad * 2}
+        height={s - pad * 2}
         fill={color}
         stroke={stroke}
+        rx={8}
+        ry={8}
       />
     </svg>
   )
 }
+
+export default ShapePreview

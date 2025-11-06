@@ -1,10 +1,16 @@
+// src/components/HistoryTimeline.tsx
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
-import { ref, query, orderByChild, equalTo, limitToLast, onValue } from 'firebase/database'
 import { onAuthStateChanged } from 'firebase/auth'
-import { rtdb, auth } from '@/lib/firebase'
-import ShapePreview from '@/components/ui/ShapePreview'
-import { normalizeShape } from '@/utils/shape'
+import { auth, rtdb } from '@/lib/firebase'
+import {
+  ref as dbRef,
+  query,
+  orderByChild,
+  equalTo,
+  limitToLast,
+  onValue,
+} from 'firebase/database'
 
 type Emotion = {
   id: string
@@ -14,10 +20,21 @@ type Emotion = {
   sound?: string
   label?: string
   score?: number
-  timestamp?: number
+  timestamp?: number | string
   likes?: number
-  lat?: number
-  lng?: number
+}
+
+function normalizeTs(t: unknown): number {
+  if (typeof t === 'number') return t
+  if (typeof t === 'string') {
+    if (/^\d+$/.test(t)) {
+      const n = Number(t)
+      return n < 2_000_000_000 ? n * 1000 : n
+    }
+    const p = Date.parse(t)
+    return Number.isFinite(p) ? p : 0
+  }
+  return 0
 }
 
 export default function HistoryTimeline() {
@@ -26,91 +43,113 @@ export default function HistoryTimeline() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string>('')
 
-  // 인증 감시
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => {
-      if (!u) location.hash = 'login'
-      setUid(u ? u.uid : null)
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
+        location.hash = '#login'
+        return
+      }
+      setUid(u.uid)
     })
     return () => unsub()
   }, [])
 
-  // 내 기록 조회
   useEffect(() => {
     if (!uid) return
-    const q = query(ref(rtdb, 'emotions'), orderByChild('userId'), equalTo(uid), limitToLast(100))
-    const off = onValue(q, snap => {
-      const list: Emotion[] = []
-      snap.forEach(c => list.push(c.val() as Emotion))
-      const safe = list
-        .filter(v => typeof v?.timestamp === 'number')
-        .map(v => ({
-          id: v.id,
-          userId: v.userId ?? 'anonymous',
-          color: v.color ?? '#8877E6',
-          shape: v.shape ?? 'square',
-          sound: v.sound ?? '-',
-          label: v.label,
-          score: v.score,
-          timestamp: v.timestamp!,
-          likes: v.likes ?? 0,
-          lat: v.lat, lng: v.lng,
-        }))
-        .sort((a,b) => b.timestamp - a.timestamp)
-      setItems(safe)
-      setLoading(false)
-    }, e => { setErr(e?.message || '타임라인을 불러오지 못했습니다.'); setLoading(false) })
+    setLoading(true)
+    const q = query(
+      dbRef(rtdb, 'emotions'),
+      orderByChild('userId'),
+      equalTo(uid),
+      limitToLast(500)
+    )
+    const off = onValue(
+      q,
+      (snap) => {
+        const list: Emotion[] = []
+        snap.forEach((c) => {
+          list.push(c.val() as Emotion)
+        })
+
+        const safe = list
+          .map((v) => ({
+            ...v,
+            timestamp: normalizeTs((v as any)?.timestamp),
+          }))
+          .filter((v) => (v.timestamp as number) > 0)
+          .sort((a, b) => (a.timestamp as number) - (b.timestamp as number)) // 타임라인은 오래된→최신
+
+        setItems(safe)
+        setLoading(false)
+      },
+      (e) => {
+        setErr(e?.message || '타임라인을 불러오지 못했습니다.')
+        setLoading(false)
+      }
+    )
     return () => off()
   }, [uid])
 
-  // 날짜별 그룹
-  const grouped = useMemo(() => {
-    const by: Record<string, Emotion[]> = {}
+  // 간단한 지표: 요일별 개수
+  const weekdayStats = useMemo(() => {
+    const arr = [0, 0, 0, 0, 0, 0, 0] // Sun..Sat
     for (const it of items) {
-      const d = new Date(it.timestamp!)
-      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-      ;(by[key] ||= []).push(it)
+      const d = new Date(it.timestamp as number)
+      arr[d.getDay()]++
     }
-    return by
+    return arr
   }, [items])
 
-  if (loading) return <div className="text-gray-500">불러오는 중…</div>
-  if (err) return <div className="text-red-500">{err}</div>
-
-  const days = Object.keys(grouped).sort((a,b) => b.localeCompare(a))
+  if (loading) return <div className="p-4 text-sm text-black/60">불러오는 중…</div>
+  if (err) return <div className="p-4 text-sm text-red-600">에러: {err}</div>
 
   return (
-    <div className="flex flex-col gap-6">
-      {days.length === 0 && (
-        <p className="text-sm text-gray-500">아직 기록이 없어요. 새 실크를 만들어 보세요.</p>
-      )}
+    <div className="p-4 max-w-4xl mx-auto">
+      <h2 className="text-xl font-bold mb-4">히스토리 타임라인</h2>
 
-      {days.map(day => (
-        <section key={day} className="rounded-2xl bg-white/60 p-3">
-          <header className="flex items-center justify-between mb-2">
-            <h3 className="text-base font-semibold text-gray-800">{day}</h3>
-            <span className="text-xs text-gray-500">{grouped[day].length}개 기록</span>
-          </header>
-
-          <div className="flex items-center gap-3 overflow-x-auto pb-2">
-            {grouped[day].map(it => {
-              const shape = normalizeShape(it.shape)
-              const color = it.color ?? '#8877E6'
-              const scoreText = typeof it.score === 'number' ? `(${Math.round(it.score * 100)}%)` : ''
-              return (
-                <div key={it.id} className="shrink-0">
-                  {/* ✅ 미리보기와 동일하게 렌더 */}
-                  <ShapePreview shape={shape} color={color} size={64} />
-                  <div className="mt-1 text-[11px] text-gray-600 text-center whitespace-nowrap">
-                    대표 감정: <b>{it.label ?? '분석 없음'}</b>
-                    {it.label ? ` ${scoreText}` : ''}
-                  </div>
+      {/* 타임라인 리스트 */}
+      <ol className="relative border-l pl-4">
+        {items.map((c) => (
+          <li key={c.id} className="mb-4 ml-2">
+            <div className="absolute -left-1.5 h-3 w-3 rounded-full border bg-white" />
+            <div className="rounded-lg border bg-white px-3 py-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">
+                  {c.label ?? 'unknown'}
+                  {typeof c.score === 'number' ? (
+                    <span className="text-black/60">
+                      {' '}
+                      · {Math.round(c.score * 100)}%
+                    </span>
+                  ) : null}
                 </div>
-              )
-            })}
-          </div>
-        </section>
-      ))}
+                <div className="text-xs text-black/60">
+                  {new Date(c.timestamp as number).toLocaleString()}
+                </div>
+              </div>
+              <div className="mt-1 text-xs text-black/60">
+                색상 {c.color ?? '-'} · 도형 {c.shape ?? '-'} · ❤️ {c.likes ?? 0}
+              </div>
+            </div>
+          </li>
+        ))}
+        {items.length === 0 && (
+          <div className="text-sm text-black/60">기록이 없습니다.</div>
+        )}
+      </ol>
+
+      {/* 간단 통계 */}
+      <div className="mt-6">
+        <div className="text-sm font-semibold mb-2">요일별 작성 수</div>
+        <div className="grid grid-cols-7 gap-2 text-center text-xs">
+          {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
+            <div key={d} className="rounded-lg border bg-white py-2">
+              <div className="font-medium">{d}</div>
+              <div className="text-black/70">{weekdayStats[i]}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

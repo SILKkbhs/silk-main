@@ -1,7 +1,7 @@
 // src/components/DetailModal.tsx
 'use client'
 import React, { useEffect, useRef } from 'react'
-import ShapeOverlay from '@/components/visuals/ShapeOverlay'
+import ShapePreview from '@/components/ui/ShapePreview'
 import { stopAllAudios } from '@/utils/audio'
 import { getSoundUrl } from '@/utils/sound'
 
@@ -48,10 +48,14 @@ export default function DetailModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/40 grid place-items-center p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
-        <div className="relative h-56" style={{ background: item.color }}>
-          <ShapeOverlay shape={item.shape} />
+        <div className="relative h-56 bg-white grid place-items-center">
+          <ShapePreview
+            shape={(item.shape as any) ?? 'square'}
+            color={item.color ?? '#7777ee'}
+            size={140}
+          />
           <div className="absolute top-3 left-3 text-xs px-2 py-1 rounded-full bg-black/30 text-white">{date}</div>
-          <div className="absolute top-3 right-3 text-white text-lg">{(item.lat&&item.lng)?'📍':''}</div>
+          <div className="absolute top-3 right-3 text-black/80 text-lg">{(item.lat&&item.lng)?'📍':''}</div>
         </div>
         <div className="p-4 space-y-2">
           <div className="text-sm text-gray-500">{item.shape} · {item.sound}</div>
