@@ -11,6 +11,8 @@ import {
   limitToLast,
   onValue,
 } from 'firebase/database'
+import ShapePreview from '@/components/ui/ShapePreview' // 프로젝트 경로에 맞게 조정
+import DetailModal from '@/components/DetailModal'
 
 type Emotion = {
   id: string
@@ -20,19 +22,17 @@ type Emotion = {
   sound?: string
   label?: string
   score?: number
-  timestamp?: number | string
-  likes?: number
+  timestamp?: number
   lat?: number
   lng?: number
 }
 
-// timestamp 정규화: number(ms)로 통일
+// timestamp → number(ms) 정규화
 function normalizeTs(t: unknown): number {
   if (typeof t === 'number') return t
   if (typeof t === 'string') {
     if (/^\d+$/.test(t)) {
       const n = Number(t)
-      // 초 단위로 저장된 경우 보정
       return n < 2_000_000_000 ? n * 1000 : n
     }
     const p = Date.parse(t)
@@ -47,10 +47,14 @@ export default function History() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string>('')
 
+  // 상세 모달
+  const [open, setOpen] = useState(false)
+  const [current, setCurrent] = useState<Emotion | null>(null)
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       if (!u) {
-        location.hash = '#login' // 해시 고정
+        location.hash = '#login'
         return
       }
       setUid(u.uid)
@@ -73,27 +77,18 @@ export default function History() {
         const list: Emotion[] = []
         snap.forEach((c) => {
           list.push(c.val() as Emotion)
-          return false
         })
 
         const safe = list
-          .map((v) => {
-            const ts = normalizeTs((v as any)?.timestamp)
-            return {
-              ...v,
-              id: v.id,
-              userId: v.userId ?? 'anonymous',
-              color: v.color ?? '#eeeeee',
-              shape: v.shape ?? 'square',
-              sound: v.sound ?? '-',
-              label: v.label,
-              score: v.score,
-              timestamp: ts,
-              likes: v.likes ?? 0,
-              lat: v.lat,
-              lng: v.lng,
-            }
-          })
+          .map((v) => ({
+            ...v,
+            id: (v as any).id,
+            userId: v.userId ?? 'anonymous',
+            color: v.color ?? '#eeeeee',
+            shape: v.shape ?? 'square',
+            sound: v.sound ?? '-',
+            timestamp: normalizeTs((v as any)?.timestamp),
+          }))
           .filter((v) => (v.timestamp as number) > 0)
           .sort((a, b) => (b.timestamp as number) - (a.timestamp as number))
 
@@ -119,6 +114,7 @@ export default function History() {
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(it)
     }
+    // 최신 날짜가 위로
     return Array.from(map.entries()).sort(
       (a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime()
     )
@@ -128,7 +124,7 @@ export default function History() {
   if (err) return <div className="p-4 text-sm text-red-600">에러: {err}</div>
 
   return (
-    <div className="p-4 max-w-3xl mx-auto">
+    <div className="p-4 max-w-5xl mx-auto">
       <h2 className="text-xl font-bold mb-4">내 히스토리</h2>
 
       {grouped.length === 0 && (
@@ -136,42 +132,62 @@ export default function History() {
       )}
 
       {grouped.map(([date, arr]) => (
-        <div key={date} className="mb-6">
-          <div className="text-sm font-semibold text-black/70 mb-2">{date}</div>
-          <div className="grid grid-cols-1 gap-2">
-            {arr.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between rounded-lg border bg-white px-3 py-2"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-6 w-6 rounded"
-                    style={{ background: c.color }}
-                    aria-label={c.shape}
-                    title={c.shape}
-                  />
-                  <div className="text-sm">
-                    <div className="font-medium">
-                      {c.label ?? 'unknown'}
-                      {typeof c.score === 'number' ? (
-                        <span className="text-black/60">
-                          {' '}
-                          · {Math.round(c.score * 100)}%
-                        </span>
-                      ) : null}
+        <section key={date} className="mb-8">
+          <div className="text-sm font-semibold text-black/80 mb-3">{date}</div>
+
+          {/* 날짜별 카드 그리드 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4">
+            {arr.map((c) => {
+              const hasLocation = typeof c.lat === 'number' && typeof c.lng === 'number'
+              const timeText = new Date(c.timestamp as number).toLocaleTimeString()
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => {
+                    setCurrent({
+                      ...c,
+                      timestamp: typeof c.timestamp === 'string' ? normalizeTs(c.timestamp) : c.timestamp
+                    })
+                    setOpen(true)
+                  }}
+                  className="text-left rounded-2xl border bg-white shadow-sm hover:shadow-md transition p-3"
+                >
+                  {/* 프리뷰: 배경 흰색, 도형 내부만 사용자 색 */}
+                  <div className="relative h-28 rounded-xl bg-white grid place-items-center">
+                    <ShapePreview
+                      shape={(c.shape as any) ?? 'square'}
+                      color={c.color ?? '#cccccc'}
+                      size={88}
+                    />
+                    <div className="absolute top-2 left-2 text-[11px] px-2 py-0.5 rounded-full bg-black/30 text-white">
+                      {timeText}
                     </div>
-                    <div className="text-xs text-black/60">
-                      {new Date(c.timestamp as number).toLocaleString()}
+                    <div className="absolute top-2 right-2 text-black/70 text-base">
+                      {hasLocation ? '📍' : ''}
                     </div>
                   </div>
-                </div>
-                <div className="text-xs text-black/60">❤️ {c.likes ?? 0}</div>
-              </div>
-            ))}
+
+                  {/* 라벨, 점수 등 간단 정보. 좋아요는 표시하지 않음 */}
+                  <div className="mt-2">
+                    <div className="text-sm font-medium truncate">
+                      {c.label ?? 'unknown'}
+                      {typeof c.score === 'number' ? (
+                        <span className="text-black/60"> · {Math.round(c.score * 100)}%</span>
+                      ) : null}
+                    </div>
+                    <div className="text-xs text-black/60 mt-0.5">
+                      {c.shape} · {c.sound}
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
           </div>
-        </div>
+        </section>
       ))}
+
+      {/* 상세 모달 */}
+      <DetailModal open={open} item={current} onClose={() => setOpen(false)} />
     </div>
   )
 }
