@@ -56,6 +56,10 @@ export default function Write(){
   const [loc,setLoc] = useState<{lat?:number;lng?:number}>({})
   const [loading,setLoading] = useState(false)
   const audioRef = useRef<HTMLAudioElement|null>(null)
+  const [authorName, setAuthorName] = useState<string>(() => {
+    return localStorage.getItem('silk_authorName') || ''
+  })
+
 
   useEffect(()=>onAuthStateChanged(auth,u=>{
     if(!u) location.hash='#login'
@@ -67,6 +71,10 @@ export default function Write(){
     return ()=>{ try{ audioRef.current?.pause() }catch{} }
   },[])
 
+  const onAuthorChange = (v: string) => {
+    setAuthorName(v)
+    localStorage.setItem('silk_authorName', v)
+  }
   const togglePlay = async ()=>{
     if(!audioRef.current) return
     try{
@@ -121,6 +129,7 @@ export default function Write(){
       const payload:any = {
         id, userId, color, shape, sound,
         timestamp: Date.now(), likes: 0,
+        authorName: (authorName || '익명').trim(),
         ...(loc.lat!=null?{lat:loc.lat}:{ }),
         ...(loc.lng!=null?{lng:loc.lng}:{ }),
         ...(label!=null?{label}:{ }),
@@ -137,8 +146,16 @@ export default function Write(){
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
+      <label className="block text-sm font-medium">피드에 표시할 닉네임</label>
+      <input
+        className="w-full mt-2 mb-4 p-3 border rounded-lg"
+        placeholder="예) 홍길동"
+        value={authorName}
+        onChange={(e)=>onAuthorChange(e.target.value)}
+        maxLength={20}
+      />
       <div className="flex justify-end mb-3">
-        <button onClick={()=>{ location.hash='#feed' }} className="px-3 py-1.5 rounded-xl border border-gray-300 text-sm text-black/70 hover:bg-gray-100">← 나가기</button>
+        <button onClick={()=>{ location.hash='#profile' }} className="px-3 py-1.5 rounded-xl border border-gray-300 text-sm text-black/70 hover:bg-gray-100">← 나가기</button>
       </div>
 
       <div className="rounded-2xl bg-white shadow grid place-items-center h-56 mb-4">

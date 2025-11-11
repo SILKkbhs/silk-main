@@ -53,7 +53,7 @@ export default function Home() {
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-neutral-900 leading-[1.1] mb-8 tracking-tight">
               당신의 감정,
               <br />
-              <span className="inline-block bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <span className="inline-block bg-gradient-to-r from-[#8877E6] via-[#788AE6] to-[#77ACE6] bg-clip-text text-transparent">
                 Silk
               </span>
               <span className="text-neutral-900">로</span>

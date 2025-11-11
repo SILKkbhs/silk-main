@@ -8,6 +8,7 @@ import DetailModal from '@/components/DetailModal'
 type Emotion = {
   id: string
   userId?: string
+  authorName?: string
   color?: string
   shape?: string
   sound?: string
@@ -111,7 +112,7 @@ export default function Explore() {
       const v = snap.val() || {}
       const list: Emotion[] = Object.keys(v).map(key => ({ id:key, ...v[key] }))
       const safe = list.filter(x=>typeof x?.timestamp==='number').map(x=>({
-        ...x, userId: x.userId ?? 'anonymous', color: x.color ?? '#eee', shape: x.shape ?? '-', sound: x.sound ?? '-', likes: x.likes ?? 0,
+        ...x, userId: x.userId ?? 'anonymous', authorName: (x as any).authorName ?? '익명', color: x.color ?? '#eee', shape: x.shape ?? '-', sound: x.sound ?? '-', likes: x.likes ?? 0,
       }))
       setCards(safe)
     })
@@ -261,7 +262,7 @@ export default function Explore() {
                     </div>
 
                     <div className="p-1 flex flex-col justify-center bg-white">
-                      <div className="text-xs text-gray-500 font-medium truncate mt-2 mb-1">{c.shape} · {c.sound}</div>
+                      <div className="text-xs text-gray-600 font-medium truncate mt-2 mb-1">작성자 : {c.authorName}</div>
                       <div className="text-lg font-extrabold truncate">
                         {hasLabel ? <span className={getColorForLabel(c.label!)}>{c.label}</span> : <span className="text-gray-400">분석 필요</span>}
                       </div>
