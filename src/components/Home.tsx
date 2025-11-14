@@ -77,12 +77,19 @@ export default function Home() {
             transition={{ duration: 1, delay: 0.7 }}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center"
           >
-            <button className="group px-8 py-4 bg-neutral-900 text-white text-base font-medium rounded-full hover:bg-neutral-800 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-neutral-900/20 min-w-[200px]">
+            <button
+              onClick={() => { location.hash = '#profile' }}   // ✅ 프로필 탭으로 이동
+              className="group px-8 py-4 bg-neutral-900 text-white text-base font-medium rounded-full hover:bg-neutral-800 transition-all duration-500 hover:scale-[1.02] hover:shadow-2xl hover:shadow-neutral-900/20 min-w-[200px]"
+            >
               <span className="inline-block transition-transform duration-500 group-hover:translate-x-1">
                 내 감정 기록하기 →
               </span>
             </button>
-            <button className="px-8 py-4 bg-white text-neutral-900 text-base font-medium rounded-full border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl min-w-[200px]">
+
+            <button
+              onClick={() => { location.hash = '#explore' }}   // ✅ 탐색 탭으로 이동
+              className="px-8 py-4 bg-white text-neutral-900 text-base font-medium rounded-full border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-all duration-500 hover:scale-[1.02] hover:shadow-xl min-w-[200px]"
+            >
               다른 감정 탐색하기
             </button>
           </motion.div>

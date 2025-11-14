@@ -137,7 +137,7 @@ export default function Explore() {
     let cancelled=false
     loadGoogleMaps().then(g=>{
       if(cancelled || !mapRef.current || mapInstance.current) return
-      mapInstance.current = new g.maps.Map(mapRef.current,{ center:{lat:37.5665,lng:126.9780}, zoom:11, fullscreenControl:false, streetViewControl:false, mapTypeControl:false })
+      mapInstance.current = new g.maps.Map(mapRef.current,{ center:{lat:37.5665,lng:126.9780}, zoom:30, fullscreenControl:false, streetViewControl:false, mapTypeControl:false })
     }).catch(err=>setMapError(err.message||'지도 로드 실패'))
     return ()=>{ cancelled=true }
   },[])
@@ -165,7 +165,13 @@ export default function Explore() {
           icon:{ path:g.maps.SymbolPath.CIRCLE, scale:7, fillColor:c.color || '#4285F4', fillOpacity:1, strokeColor:'#333', strokeWeight:1 }
         }) as MarkerWithInfo
         marker.__infoWindow = info; marker.__emotionId = c.id
-        marker.addListener('click',()=>{ markersMapRef.current.forEach(m=>m.__infoWindow.close()); info.open({ map, anchor: marker }) })
+        marker.addListener('click', () => {
+        const hit = cards.find(x => x.id === marker.__emotionId)
+        if (hit) {
+          setCurrent(hit)
+          setOpen(true)
+        }
+      })
         nextMarkers.set(c.id, marker)
       }
       bounds.extend({lat:c.lat!,lng:c.lng!})
@@ -187,7 +193,7 @@ export default function Explore() {
     cells.forEach(v=>{
       const center = { lat:v.latSum/v.count, lng:v.lngSum/v.count }
       const avgHappy = v.scoreSum/v.count
-      const radius = 100 + 50 * v.count
+      const radius = 50 + 40 * v.count
       const opacity = Math.max(0.15, Math.min(0.5, 0.15 + avgHappy * 0.35))
       const circle = new g.maps.Circle({ map, center, radius, strokeColor:'#4CAF50', strokeOpacity:0.6, strokeWeight:1, fillColor:'#4CAF50', fillOpacity:opacity, clickable:false })
       circlesRef.current.push(circle)
@@ -197,7 +203,7 @@ export default function Explore() {
   const handleMapCenter = (c:Emotion)=>{
     if (typeof c.lat!=='number' || typeof c.lng!=='number') return alert('이 기록에는 위치 정보가 없습니다.')
     if (!mapInstance.current) return alert('지도가 아직 로드되지 않았습니다.')
-    mapInstance.current.panTo({lat:c.lat,lng:c.lng}); mapInstance.current.setZoom(14)
+    mapInstance.current.panTo({lat:c.lat,lng:c.lng}); mapInstance.current.setZoom(16)
   }
 
   const onAnalyze = async (c:Emotion)=>{
